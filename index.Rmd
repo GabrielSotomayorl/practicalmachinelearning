@@ -5,26 +5,76 @@ date: "08-06-2020"
 output: html_document
 ---
 
+
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
 ```
 
-## R Markdown
+```{r enviroment}
+set.seed(1920)
+setwd("C:/Users/gabri/OneDrive/Coursera/Practical Machine Learning")
+library(caret)
+library(randomForest)
 
-This is an R Markdown document. Markdown is a simple formatting syntax for authoring HTML, PDF, and MS Word documents. For more details on using R Markdown see <http://rmarkdown.rstudio.com>.
+```
+# Introduction and summary
 
-When you click the **Knit** button a document will be generated that includes both content as well as the output of any embedded R code chunks within the document. You can embed an R code chunk like this:
+On this work, we are using accelerometer data from 6 subjects to predict if they are doing barbell lifts on correct or incorrect ways.
+To do that we cleaned the data, divided it on training and test data set and fit a random forest model. The model had an out of sample accuracy of 99.81% per cent on the testing data set and predicted correctly 100% per cent of the 20 extra cases provided to test the model.
 
-```{r cars}
-summary(cars)
+# Background
+
+Using devices such as Jawbone Up, Nike FuelBand, and Fitbit it is now possible to collect a large amount of data about personal activity relatively inexpensively. These type of devices are part of the quantified self-movement – a group of enthusiasts who take measurements about themselves regularly to improve their health, to find patterns in their behaviour, or because they are tech geeks. One thing that people regularly do is quantify how much of a particular activity they do, but they rarely quantify how well they do it. In this project, your goal will be to use data from accelerometers on the belt, forearm, arm, and dumbell of 6 participants. They were asked to perform barbell lifts correctly and incorrectly in 5 different ways. More information is available from the website here: http://web.archive.org/web/20161224072740/http:/groupware.les.inf.puc-rio.br/har (see the section on the Weight Lifting Exercise Dataset).
+
+## Data
+
+We loaded the training and testing datasets provided by the course, divided the training data set on training and a test data set. Then we cleaned the data by removing the variables which had zero or near-zero variance, the variables with mostly NA cases, and the identification variables.
+
+```{r data}
+training <- read.csv(url("http://d396qusza40orc.cloudfront.net/predmachlearn/pml-training.csv"))
+testing  <- read.csv(url("http://d396qusza40orc.cloudfront.net/predmachlearn/pml-testing.csv"))
+
+# create a partition with the training dataset 
+inTrain  <- createDataPartition(training$classe, p=0.7, list=FALSE)
+Traindata <- training[inTrain, ]
+Testdata  <- training[-inTrain, ]
+dim(Testdata)
+
+zerv <- nearZeroVar(Traindata)
+Traindata <- Traindata[, -zerv]
+Testdata  <- Testdata[, -zerv]
+
+RMNA    <- sapply(Traindata, function(x) mean(is.na(x))) > 0.95
+Traindata <- Traindata[, RMNA ==FALSE]
+Testdata <- Testdata[, RMNA ==FALSE]
+
+Traindata<- Traindata[, -(1:5)]
+Testdata  <- Testdata[, -(1:5)]
+dim(Testdata)
 ```
 
-## Including Plots
-
-You can also embed plots, for example:
-
-```{r pressure, echo=FALSE}
-plot(pressure)
+# Model building and testing
+We applied a random forest model to model the regressions
+```{r random forest model}
+set.seed(1920)
+RF <- trainControl(method="cv", number=3, verboseIter=FALSE)
+rforest <- train(classe ~ ., data=Traindata, method="rf",
+                          trControl=RF)
+rforest$finalModel
 ```
 
-Note that the `echo = FALSE` parameter was added to the code chunk to prevent printing of the R code that generated the plot.
+Then we used the training subset to create a prediction and then measure its accuracy. It predicted correctly on over 99% of the cases, so we decided to use this model to the final exercise of prediction.
+```{r random forest model test}
+# prediction on Test dataset
+predrforest <- predict(rforest, newdata=Testdata)
+cmrf <- confusionMatrix(predrforest, Testdata$classe)
+cmrf
+```
+
+# Applying prediction model
+
+To finish the exercise, we applied the model to predict on the testing data, with 100% per cent of accuracy.
+```{r testing prediction}
+predtesting <- predict(rforest, newdata=testing)
+predtesting
+```
